@@ -2,7 +2,7 @@
 
 Diagramas educativos para Typst a partir de bloques YAML/JSON: estructuras de datos y
 algoritmos, sistemas digitales y de computación, control de procesos, química, señales,
-probabilidad y circuitos. Son 70 tipos, y el modo ejercicio deja en blanco lo que se tiene que
+probabilidad y circuitos. Son 71 tipos, y el modo ejercicio deja en blanco lo que se tiene que
 completar.
 
 *Educational diagrams (data structures, digital systems, control, chemistry, signals,
