@@ -1,0 +1,8 @@
+# Las dependencias Rust del plugin apuntan a dibu por ruta (../dibu), que Dependabot no puede
+# resolver. Aquí sólo las Actions.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

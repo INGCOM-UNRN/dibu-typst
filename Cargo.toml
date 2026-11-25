@@ -1,0 +1,22 @@
+[package]
+name = "dibu-typst-plugin"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+description = "Plugin WebAssembly de Typst (wasm-minimal-protocol) con el motor de dibu"
+
+[lib]
+crate-type = ["cdylib"]
+
+# El motor vive en el repositorio hermano `dibu` (../dibu), igual que en dibu-web.
+[dependencies]
+dibu-wasm = { path = "../dibu/crates/dibu-wasm", default-features = false }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

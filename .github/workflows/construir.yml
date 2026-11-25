@@ -1,0 +1,80 @@
+# Workflow reutilizable: compila el plugin contra dibu y corre todas las pruebas.
+# Clona INGCOM-UNRN/dibu (público) junto a este repositorio, con la misma disposición
+# ../dibu que en desarrollo.
+name: Construir
+
+on:
+  workflow_call:
+    inputs:
+      dibu_ref:
+        description: Rama, tag o commit de dibu
+        type: string
+        default: main
+    outputs:
+      dibu_sha:
+        description: Commit de dibu usado
+        value: ${{ jobs.construir.outputs.dibu_sha }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  construir:
+    name: Plugin y pruebas (Typst ${{ matrix.typst }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # La versión mínima declarada en paquete/typst.toml y la última.
+        typst: ["0.13.1", latest]
+    outputs:
+      dibu_sha: ${{ steps.dibu.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: dibu-typst
+      - name: Clonar dibu (${{ inputs.dibu_ref }})
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/dibu
+          ref: ${{ inputs.dibu_ref }}
+          path: dibu
+      - id: dibu
+        run: echo "sha=$(git -C dibu rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: dibu-typst -> target
+      - run: sudo apt-get update -q && sudo apt-get install -y -q binaryen
+      - uses: typst-community/setup-typst@v4
+        with:
+          typst-version: ${{ matrix.typst }}
+      - run: typst --version
+      - name: Construir el plugin
+        working-directory: dibu-typst
+        run: scripts/construir.sh
+      - name: Pruebas
+        working-directory: dibu-typst
+        run: scripts/probar.sh
+      - name: Resumen
+        run: |
+          echo "### Typst ${{ matrix.typst }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(typst --version)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dibu: \`${{ inputs.dibu_ref }}\` ($(git -C dibu log -1 --format='%h %s'))" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dibu.wasm: $(du -h dibu-typst/paquete/dibu.wasm | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+      - if: matrix.typst == 'latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: paquete
+          path: dibu-typst/paquete
+          if-no-files-found: error
+      - if: matrix.typst == 'latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pdf
+          path: dibu-typst/salida/*.pdf

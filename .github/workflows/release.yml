@@ -1,0 +1,103 @@
+# Publica el paquete de Typst como release de GitHub.
+#   git tag v0.1.0 && git push origin v0.1.0
+# La versión del tag tiene que coincidir con paquete/typst.toml y Cargo.toml.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag existente a publicar (p. ej. v0.1.0)
+        required: true
+      dibu_ref:
+        description: Rama, tag o commit de dibu
+        default: main
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  preparar:
+    name: Validar versión
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - id: v
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          typst_v=$(sed -n 's/^version *= *"\(.*\)"/\1/p' paquete/typst.toml)
+          cargo_v=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -1)
+          echo "tag=$version typst.toml=$typst_v Cargo.toml=$cargo_v"
+          if [ "$version" != "$typst_v" ] || [ "$version" != "$cargo_v" ]; then
+            echo "::error::El tag $TAG no coincide con las versiones declaradas"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  pruebas:
+    needs: preparar
+    uses: ./.github/workflows/construir.yml
+    with:
+      dibu_ref: ${{ inputs.dibu_ref || 'main' }}
+
+  publicar:
+    name: Publicar release
+    needs: [preparar, pruebas]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: paquete
+          path: paquete-ci
+      - name: Empaquetar
+        run: |
+          set -euo pipefail
+          v=${{ needs.preparar.outputs.version }}
+          mkdir -p "dist/dibu/$v"
+          cp -r paquete-ci/. "dist/dibu/$v/"
+          tar -czf "dibu-typst-$v.tar.gz" -C dist dibu
+          sha256sum "dibu-typst-$v.tar.gz" > SHA256SUMS
+          tar -tzf "dibu-typst-$v.tar.gz"
+      - name: Notas
+        run: |
+          v=${{ needs.preparar.outputs.version }}
+          cat > NOTAS.md <<NOTAS
+          Paquete de Typst \`dibu\` $v, con el motor de dibu \`${{ needs.pruebas.outputs.dibu_sha }}\`.
+
+          ### Instalación
+
+          Descomprimir \`dibu-typst-$v.tar.gz\` en el directorio de paquetes locales de Typst
+          (\`~/.local/share/typst/packages/local/\` en Linux) e importar:
+
+          \`\`\`typ
+          #import "@local/dibu:$v": dibu, dibu-bloques
+          \`\`\`
+          NOTAS
+      - name: Crear o actualizar el release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          v=${{ needs.preparar.outputs.version }}
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "dibu-typst-$v.tar.gz" SHA256SUMS --clobber
+            gh release edit "$TAG" --notes-file NOTAS.md
+          else
+            gh release create "$TAG" "dibu-typst-$v.tar.gz" SHA256SUMS --title "dibu-typst $TAG" \
+              --notes-file NOTAS.md --verify-tag
+          fi

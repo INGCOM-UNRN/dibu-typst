@@ -1,0 +1,13 @@
+[package]
+name = "dibu"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["Martín René Vilugrón", "INGCOM-UNRN <https://github.com/INGCOM-UNRN>"]
+license = "GPL-3.0-or-later"
+description = "Educational diagrams (data structures, digital systems, control, chemistry, signals) from YAML/JSON blocks."
+repository = "https://github.com/INGCOM-UNRN/dibu-typst"
+keywords = ["diagram", "education", "data structures", "control", "chemistry", "karnaugh", "bode"]
+categories = ["visualization", "integration"]
+disciplines = ["computer-science", "engineering", "chemistry", "mathematics", "education"]
+compiler = "0.13.0"
+exclude = []
