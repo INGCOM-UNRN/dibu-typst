@@ -51,7 +51,7 @@ jobs:
         with:
           workspaces: dibu-typst -> target
       - run: sudo apt-get update -q && sudo apt-get install -y -q binaryen
-      - uses: typst-community/setup-typst@v4
+      - uses: typst-community/setup-typst@v5
         with:
           typst-version: ${{ matrix.typst }}
       - run: typst --version
